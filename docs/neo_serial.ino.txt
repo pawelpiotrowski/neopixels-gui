@@ -1,0 +1,139 @@
+#include <Adafruit_NeoPixel.h>
+
+#define PIN 6
+#define NUMPIXELS 6
+
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+
+int pixelsDelay = 500;
+int pixelsOn = 0;
+int speakerPin = 12;
+int speakerHigh = 900;
+int speakerLow = 200;
+int speakerDelay = 50;
+int serialRate = 9600;
+
+void setup() {
+  Serial.begin(serialRate);
+  pixels.begin();
+  pixels.show();
+}
+
+void loop() {
+  while (Serial.available() > 0)
+  {
+    int msgArgument1 = Serial.parseInt();
+    int msgArgument2 = Serial.parseInt();
+    int msgArgument3 = Serial.parseInt();
+    int msgArgument4 = Serial.parseInt();
+    if (Serial.read() == '\n') {
+      processMessage(msgArgument1, msgArgument2, msgArgument3, msgArgument4);
+    }
+  }
+}
+
+void processSpecialMessage(int msgCode, int msgData) {
+  Serial.println("Processing special:");
+  Serial.println(msgCode);
+  Serial.println(msgData);
+  switch (msgCode) {
+    case 0:
+      showPixels();
+      break;
+    case -1:
+      hidePixels();
+      break;
+    case -2:
+      if (msgData == 0) {
+        darkenUp();
+      } else if (msgData == 1) {
+        lightenUp();
+      }
+      break;
+  }
+}
+
+void processMessage(int msga1, int msga2, int msga3, int msga4) {
+  Serial.println("Arduino Received:");
+  Serial.println(msga1);
+  Serial.println(msga2);
+  Serial.println(msga3);
+  Serial.println(msga4);
+  if (msga1 < 1) {
+    processSpecialMessage(msga1, msga2);
+  } else if (msga1 > NUMPIXELS) {
+    setAllPixelsTo(msga2, msga3, msga4);
+  } else {
+    setPixelTo(msga1 - 1, msga2, msga3, msga4);
+  }
+}
+
+void setPixelTo(int pixelIndex, int colorRed, int colorGreen, int colorBlue) {
+  Serial.print("Set pixels index:");
+  Serial.println(pixelIndex);
+  Serial.println("to colors:");
+  Serial.println(colorRed);
+  Serial.println(colorGreen);
+  Serial.println(colorBlue);
+  pixels.setPixelColor(pixelIndex, pixels.Color(colorRed, colorGreen, colorBlue));
+}
+
+void setAllPixelsTo(int colorRed, int colorGreen, int colorBlue) {
+  Serial.println("Set all pixels to:");
+  Serial.println(colorRed);
+  Serial.println(colorGreen);
+  Serial.println(colorBlue);
+  for (int i = 0; i < NUMPIXELS; i++) {
+    // pixels.Color takes RGB values, from 0,0,0 up to 255,255,255
+    pixels.setPixelColor(i, pixels.Color(colorRed, colorGreen, colorBlue));
+  }
+}
+
+void showPixels() {
+  Serial.println("Pixels show");
+  pixels.show(); // This sends the updated pixel color to the hardware.
+}
+
+void hidePixels() {
+  Serial.println("Pixels hide (will print pixel show)");
+  setAllPixelsTo(0, 0, 0);
+  showPixels();
+}
+
+void darken() {
+  for (int i = 0; i < NUMPIXELS; i++) {
+    setPixelTo(i, 0, 0, 0);
+    showPixels();
+    delay(pixelsDelay); // Delay for a period of time (in milliseconds).
+  }
+  pixelsOn = 0;
+  Serial.println("Darken up!");
+}
+
+void darkenUp() {
+  if (pixelsOn == 1) {
+    tone(speakerPin, speakerLow);
+    delay(speakerDelay);
+    noTone(speakerPin);
+    darken();
+  }
+}
+
+void lighten() {
+  for (int i = 0; i < NUMPIXELS; i++) {
+    setPixelTo(i, 0, 150, 0); // Moderately bright green color.
+    showPixels();
+    delay(pixelsDelay); // Delay for a period of time (in milliseconds).
+  }
+  pixelsOn = 1;
+  Serial.println("Lighten up!");
+}
+
+void lightenUp() {
+  if (pixelsOn == 0) {
+    tone(speakerPin, speakerHigh);
+    delay(speakerDelay);
+    noTone(speakerPin);
+    lighten();
+  }
+}
